@@ -1,7 +1,8 @@
 package com.anxinkan.app
 
+import java.util.Locale
+import kotlin.math.round
 import org.json.JSONObject
-
 internal data class WeatherDay(
     val date: String,
     val weekday: String,
@@ -38,6 +39,20 @@ internal fun parseWeatherReport(json: String): WeatherReport {
         speech = root.getString("speech"),
         days = days,
     )
+}
+
+internal fun roundCoordinate(value: Double): Double = round(value * 100.0) / 100.0
+
+internal fun formatCoordinate(value: Double): String =
+    String.format(Locale.US, "%.2f", roundCoordinate(value))
+
+internal fun weatherReportOrNull(status: Int, body: String): WeatherReport? {
+    if (status != 200) return null
+    return try {
+        parseWeatherReport(body)
+    } catch (_: Exception) {
+        null
+    }
 }
 
 internal enum class WeatherKind { Clear, Cloud, Rain, Snow, Unknown }

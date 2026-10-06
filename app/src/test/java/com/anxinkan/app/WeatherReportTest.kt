@@ -1,8 +1,8 @@
 package com.anxinkan.app
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
-
 class WeatherReportTest {
     @Test
     fun parsesWorkerContractWithoutCallingOpenMeteo() {
@@ -36,5 +36,23 @@ class WeatherReportTest {
         assertEquals(WeatherKind.Unknown, weatherKind("天气不明"))
         assertEquals(1, spokenWeekdayNumber("星期一"))
         assertEquals(7, spokenWeekdayNumber("星期日"))
+    }
+
+    @Test
+    fun roundsCoordinatesBeforeTheyLeaveThePhone() {
+        assertEquals(31.23, roundCoordinate(31.2349), 0.0)
+        assertEquals(121.48, roundCoordinate(121.4761), 0.0)
+        assertEquals(90.0, roundCoordinate(89.996), 0.0)
+        assertEquals("31.23", formatCoordinate(31.2349))
+        assertEquals("121.48", formatCoordinate(121.4761))
+        assertEquals("90.00", formatCoordinate(89.996))
+        assertEquals("-118.24", formatCoordinate(-118.2437))
+    }
+
+    @Test
+    fun returnsNullForFailedOrUnreadableWeather() {
+        assertNull(weatherReportOrNull(500, "upstream data invalid"))
+        assertNull(weatherReportOrNull(200, "not-json"))
+        assertNull(weatherReportOrNull(200, """{"timezone":"Asia/Shanghai","speech":"x","days":[{"low":null}]}"""))
     }
 }

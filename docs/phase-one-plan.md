@@ -320,7 +320,7 @@ C1 和 C2 有主机命令证据；核心 APK 权限和组件审计通过；C3/C4
 - Worker 纯函数和 handler 测试通过：覆盖参数校验、一次上游调用、`timezone=auto`、daily 字段、3 天、400/404/502 和上游异常。
 - 本地模拟 Open-Meteo + 本地 Worker HTTP 服务已用上海 `31.2304,121.4737` 与洛杉矶 `34.0522,-118.2437` 请求验证；两次返回的时区、当天排序、天气类型、温度和 speech 均与坐标不同，`days[0]` 与 speech 的当天一致。
 - 曾发现并修复 `speech` 与 `days` 排序不一致的问题，并补回归测试。
-- 真实 `https://api.open-meteo.com` 请求在当前环境超时；Cloudflare 尚未部署。因此 W1 状态为 `implemented-unverified`，不能开始依赖它的 W2。
+- 真实 `https://api.open-meteo.com` 请求在当时的执行环境超时；写这段时 Cloudflare 尚未部署。因此当时 W1 状态为 `implemented-unverified`。2026-10-06 已完成首次部署。安全补丁后的当前行为见 `docs/weather-worker-deployment.md`。真实 Worker URL 不写入本仓库。
 - Grok reviewer：修复后的 handler 契约无必须修正项，但因真实上游未验证，不能标记 `done`；W2 暂停。
 
 ### W2：Android 定位与单页天气展示

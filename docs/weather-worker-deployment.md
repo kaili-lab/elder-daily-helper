@@ -1,52 +1,55 @@
-# 天气 Worker 部署与真机验证
+# 天气 Worker 部署与验证
 
-## 本地已完成
+## 当前行为
 
-- Worker 入口：`worker/src/index.mjs`
-- 本地服务：`worker/local-server.mjs`
-- 契约测试：`worker/test/forecast.test.mjs`、`worker/test/handler.test.mjs`
-- Cloudflare 配置：`worker/wrangler.toml`
-- 本地模拟上游和两个经纬度 HTTP 请求已验证。
-- 真实 Open-Meteo 在当前执行环境请求超时；Cloudflare 部署后的真实链路仍未验证。
+- 只接受 `GET /weather`。其他方法返回 `405`，正文是 `method not allowed`。
+- 缺少坐标、坐标超出范围，或 `days` 不是 `3` 或 `5` 时返回 `400`。
+- 其他路径返回 `404`。
+- 合法坐标先通过范围校验，再四舍五入到小数点后 2 位，然后才请求 Open-Meteo。大约 1 公里精度，不发送街道级坐标。
+- 上游超时、网络失败、非 2xx 或 300–399 重定向都返回 `502`，不跟随重定向，也不返回上游正文。
+- 上游 JSON 无法解析、天数为空，或温度不是有限数字时返回 `500`，正文固定为 `upstream data invalid`。
+- 同一个 IP 每 60 秒最多 30 次。超出返回 `429`。生产环境缺少限流配置时返回 `503`，不会变成无限放行。
+- 以上错误响应都带 `Cache-Control: no-store`。
+- 不缓存整份天气响应，避免把播报里的当前时间冻住。
+- Worker 配置关闭了带完整 URL 的调用日志。仪表盘仍需人工确认没有新增这类记录。免费版已经产生的日志大约保留 3 天，不能手动删除，只能等它过期。
+- Worker 地址视为公开。本文件不记录真实地址，源码也不写死地址。
 
-## 你执行的部署步骤
+## 部署
 
-在仓库的 `worker/` 目录执行。需要先安装并登录 Wrangler；本项目没有替你登录 Cloudflare，也没有自动部署。
+在 `worker/` 目录执行。首次可用 `npx wrangler login`。Worker 已经存在后，后续部署可以使用只含该 Worker 编辑权限的 API token。不要把 token 写入仓库。
 
 ```bash
 cd worker
-npx wrangler login
 npx wrangler deploy
 ```
 
-部署成功后，Wrangler 会返回一个 Worker URL，形式类似：
+部署输出应包含 `WEATHER_IP_LIMIT`。调用日志配置必须同时写 `observability.logs.enabled = true` 和 `invocation_logs = false`：前者保留排障日志，后者关闭带完整 URL 的调用记录。不要改成 `observability.enabled = false`。
+
+## 浏览器验证
+
+把部署得到的地址代入下面的链接。示例坐标是上海，不是某个人的精确位置。
 
 ```text
-https://anxinkan-weather.<你的账户>.workers.dev
+https://<worker-host>/weather?latitude=31.2304&longitude=121.4737&days=3
 ```
 
-先用浏览器或 curl 验证接口。经纬度示例：
+浏览器应显示 JSON，其中有 `timezone`、`speech` 和 `days`。`days[0]` 对应当天。再试：
 
-```bash
-curl 'https://anxinkan-weather.<你的账户>.workers.dev/weather?latitude=31.2304&longitude=121.4737&days=3'
-curl 'https://anxinkan-weather.<你的账户>.workers.dev/weather?latitude=34.0522&longitude=-118.2437&days=3'
+```text
+https://<worker-host>/weather?latitude=31.23&longitude=121.47&days=4
 ```
 
-预期 JSON 包含：`timezone`、`speech`、`days`；`days[0]` 应与 speech 中的“今天”对应。真实接口返回后，再把完整 Worker URL 注入 Android release 构建的 `WEATHER_WORKER_BASE_URL` 环境变量。不要把未验证地址写死进源码。
+这一条应显示 `bad request`。不要用循环请求验证 429，以免占满限额。
 
-## 真机验证步骤
+## Android
 
-1. 在红米或荣耀手机上打开 App。
-2. 首屏先确认日期、时间、星期仍立即显示。
-3. 系统定位权限弹窗出现时，由照护者授予“精确位置”；只授予大致位置或拒绝时，时钟仍可用，天气不可用。
-4. 确认天气行显示星期、天气图形和完整摄氏温度，不应截断核心温度。
-5. 保存原日期、时间和时区后，再做时间/日期/时区测试；结束后必须恢复原值。
-6. TTS 暂不作为本任务完成条件；中文朗读另开任务，设备验证前不宣称可用。
+App 在坐标离开手机前也取整到小数点后 2 位。网络失败、非 200 和无法解析的 JSON 都让天气为空，时钟继续显示。
 
-## 当前未验证
+在仪表盘确认调用日志不再记录带坐标的 URL 之前，不要用真机的精确位置请求这个服务，也不要把地址注入 release APK。
 
-- Cloudflare 真实部署是否成功。
-- 国内运营商网络到 Worker 和 Open-Meteo 的实际耗时/失败率。
-- Android 精确定位权限和 GPS 在红米/荣耀上的实际行为。
-- 单页天气布局在真实屏幕上的可读性。
-- 红米/荣耀系统中文 TTS 是否安装并可用。
+## 仍需人工确认
+
+- Cloudflare 仪表盘里，这次部署之后没有新增带坐标的调用日志。
+- Cloudflare 账号已开启两步验证。
+- 国内运营商访问 `workers.dev` 的稳定性。
+- 红米或荣耀手机上的定位权限和天气显示。

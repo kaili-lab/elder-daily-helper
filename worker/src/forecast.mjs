@@ -19,6 +19,13 @@ export function weekdayName(isoDate) {
   return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
 }
 
+function roundTemperature(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new TypeError("invalid temperature");
+  }
+  return Math.round(value);
+}
+
 export function formatTemperature(low, high) {
   const format = (value) => (value < 0 ? `零下${Math.abs(value)}` : String(value));
   if (low === high) return `气温${format(low)}度`;
@@ -52,8 +59,8 @@ export function buildForecast(payload, now) {
     date,
     weekday: weekdayName(date),
     condition: conditionFromCode(payload.daily.weather_code[index]),
-    low: Math.round(payload.daily.temperature_2m_min[index]),
-    high: Math.round(payload.daily.temperature_2m_max[index]),
+    low: roundTemperature(payload.daily.temperature_2m_min[index]),
+    high: roundTemperature(payload.daily.temperature_2m_max[index]),
   }));
   const today = days.find((day) => day.date === localNow.date);
   const ordered = today ? [today, ...days.filter((day) => day !== today)] : days;

@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 
 const payloads = new Map([
-  ["31.2304", {
+  ["31.23", {
     timezone: "Asia/Shanghai",
     daily: {
       time: ["2026-10-05", "2026-10-06", "2026-10-07"],
@@ -10,7 +10,7 @@ const payloads = new Map([
       temperature_2m_min: [15, 18, 3],
     },
   }],
-  ["34.0522", {
+  ["34.05", {
     timezone: "America/Los_Angeles",
     daily: {
       time: ["2026-10-04", "2026-10-05", "2026-10-06"],
