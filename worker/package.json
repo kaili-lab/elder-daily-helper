@@ -1,0 +1,12 @@
+{
+  "name": "anxinkan-weather-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/forecast.test.mjs && node test/handler.test.mjs",
+    "dev": "node local-server.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.147.0"
+  }
+}
