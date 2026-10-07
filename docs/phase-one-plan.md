@@ -14,13 +14,14 @@ ready -> implement -> verify -> done
 
 计划不把“代码看起来正确”当作验证，也不把主机上的构建结果当作荣耀手机验收结果。行为规格发生变化时，先修改验收文档，再修改任务卡和代码；不能在实现任务中顺手改变验收标准。
 
-当前状态：C1/C1-R1 已在红米 `23013RK75C` 上完成核心页面和系统时间变化观察；C4 的锁屏代码已实现，但这台红米的锁屏主路径未通过，荣耀结果仍未测试。C2 等待 release keystore 保管/备份方案，C5 等待荣耀手机现场。C6 不创建。
+当前状态：C1/C1-R1 已在红米 `23013RK75C` 上完成核心页面和系统时间变化观察；C4 的锁屏代码未作为当前交付能力，荣耀现场仍未测试。C2 已完成天气版 release 构建和主机侧审计，C5 等待荣耀手机现场。C6 不创建。
 
 红米 `23013RK75C`、Android 14（API 34）、构建 `V816.0.16.0.UMNCNXM` 已完成 debug APK 安装和现场观察：直接进入三行页面，竖屏保持锁定，前后台返回后时间正确；系统字体调大再调回后，固定字号不变化；修改时间、日期、时区后返回页面均立即按新值显示，测试结束后已恢复原设置且页面同步恢复。该机点亮后、解锁前未看到 App 页面，记录为这台设备的锁屏主路径未通过，不代表荣耀结果，也不据此创建通知。
 
-C2 已完成主机侧 release 构建：正式签名文件位于仓库外的 `仓库外的 release 签名文件`，密码文件与签名文件权限均为仅当前用户可读写，用户已确认复制到另一存储位置。`app-release.apk` 的包名为 `com.anxinkan.app`，`minSdk` 为 31，`targetSdk` 为 36，版本 `0.1.0`，唯一 launcher 为 `MainActivity`，v2 签名验证通过，不是 debuggable，且没有网络、通知、开机或唤醒权限。该 APK 尚未安装到荣耀手机。
+C2 已完成主机侧天气版 release 构建：正式签名文件和密码文件位于仓库外，权限为仅当前用户可读写，并已完成备份。`app-release.apk` 的包名为 `com.anxinkan.app`，`minSdk` 为 31，`targetSdk` 为 36，版本 `0.1.0`，唯一 launcher 为 `MainActivity`，v2 签名验证通过，不是 debuggable；天气版声明 `INTERNET`、`ACCESS_FINE_LOCATION` 和 `ACCESS_COARSE_LOCATION`，线上 Worker 地址只通过构建环境变量注入。该 APK 尚未安装到荣耀手机。
 
-2026-10-04 决定：暂停锁屏后续设计。红米设备上的锁屏主路径未通过，但不再为它添加通知、点亮屏幕、后台拉起或其他绕过方案；荣耀现场如果以后需要，再单独重新评估。当前可交付行为以解锁后打开的核心大字页面为准。
+2026-10-04 决定：暂停锁屏后续设计。红米设备上的锁屏主路径未通过，但不再为它添加通知、点亮屏幕、后台拉起或其他绕过方案；荣耀现场如果以后需要，再单独重新评估。当前可交付行为以解锁后打开的核心大字页面和天气版为准。
+
 
 ## 2. 冻结约定
 
@@ -143,11 +144,11 @@ Gradle/AGP 与 JDK 21 不兼容时停止；不改用 JBR、不换第三方镜像
 
 **结果**
 
-在 release keystore 的保管和备份方案明确后，用固定签名生成非 debuggable 的 release APK；包名、版本号和权限符合第一阶段约定。此卡不阻塞 C1 的 JVM 测试或 debug 构建。
+在 release keystore 的保管和备份方案明确后，用固定签名生成非 debuggable 的天气版 release APK；包名、版本号、天气地址注入方式和权限符合当前约定。该 APK 尚未安装到荣耀手机。
 
 **明确不做**
 
-不在密钥方案未确定时生成 keystore；不把 keystore、密码或私钥写入仓库；不把 release APK 发给亲人，直到 C5 的现场准备条件满足。
+不把 keystore、密码或私钥写入仓库；不把真实 Worker 地址写死进源码；在荣耀现场准备完成前不把 APK 视为真机验收完成。
 
 **依赖**
 
@@ -159,10 +160,10 @@ Gradle/AGP 与 JDK 21 不兼容时停止；不改用 JBR、不换第三方镜像
 
 **验证**
 
-- `./gradlew :app:assembleRelease`：退出码为 0。
-- `专用 Build-Tools 36.0.0 目录中的 apksigner verify <release-apk>`：签名验证通过。
-- `专用 Build-Tools 36.0.0 目录中的 aapt dump badging <release-apk>`：包名为 `com.anxinkan.app`，`debuggable` 不为 true，版本信息存在。
-- `专用 Build-Tools 36.0.0 目录中的 aapt dump permissions <release-apk>`：没有网络、通知、开机、唤醒或其他未授权权限。
+- `./gradlew :app:assembleRelease`：在注入已部署 HTTPS Worker 地址和仓库外签名配置后退出码为 0。
+- `专用 Build-Tools 36.0.0 目录中的 apksigner verify <release-apk>`：v2 签名验证通过，APK 不是 debuggable。
+- `专用 Build-Tools 36.0.0 目录中的 aapt dump badging <release-apk>`：包名为 `com.anxinkan.app`，`minSdk` 为 31，`targetSdk` 为 36，唯一 launcher 为 `MainActivity`。
+- `专用 Build-Tools 36.0.0 目录中的 aapt dump permissions <release-apk>`：天气版声明 `INTERNET`、`ACCESS_FINE_LOCATION` 和 `ACCESS_COARSE_LOCATION`；没有通知、开机或唤醒权限。
 
 **禁止声称**
 
@@ -310,33 +311,33 @@ C1 和 C2 有主机命令证据；核心 APK 权限和组件审计通过；C3/C4
 
 ### W1：Cloudflare Worker 天气契约与本地服务
 
-- **结果**：`worker/src/index.mjs` 提供 `/weather?latitude=&longitude=&days=3|5`；调用 Open-Meteo，按查询地点时区生成稳定 JSON；本地 HTTP 服务可运行并接受不同经纬度。
-- **明确不做**：不部署 Cloudflare；不让 Android 直连 Open-Meteo；不加入账号、数据库或 TTS。
-- **验证**：纯函数测试；handler 注入 fetch 的参数和响应测试；本地 HTTP 服务使用真实上游分别请求至少两个经纬度，检查 timezone、日期、星期、天气类型、温度和 speech 字段。
-- **未验证边界**：Cloudflare 部署后的域名、国内手机到 Worker 的链路未验证。
-- **停止条件**：契约不稳定、上游响应字段缺失或本地真实请求失败时，不接 Android。
+- **结果**：`worker/src/index.mjs` 提供 `/weather?latitude=&longitude=&days=3|5`；调用 Open-Meteo，按查询地点时区生成稳定 JSON；本地 HTTP 服务可运行并接受不同经纬度。后续已将 Worker 部署到 Cloudflare，并完成安全配置。
+- **明确不做**：不让 Android 直连 Open-Meteo；不加入账号、数据库或 TTS。
+- **验证**：纯函数测试；handler 注入 fetch 的参数和响应测试；本地 HTTP 服务使用模拟上游分别请求至少两个经纬度，检查 timezone、日期、星期、天气类型、温度和 speech 字段；线上示例 GET、POST 和非法参数已验证。
+- **未验证边界**：国内手机到 Worker 的链路、荣耀手机上的实际天气显示仍未验证。
+- **停止条件**：契约不稳定、上游响应字段缺失或本地测试失败时，不接 Android。
 **W1 实际证据与状态**
 
 - Worker 纯函数和 handler 测试通过：覆盖参数校验、一次上游调用、`timezone=auto`、daily 字段、3 天、400/404/502 和上游异常。
 - 本地模拟 Open-Meteo + 本地 Worker HTTP 服务已用上海 `31.2304,121.4737` 与洛杉矶 `34.0522,-118.2437` 请求验证；两次返回的时区、当天排序、天气类型、温度和 speech 均与坐标不同，`days[0]` 与 speech 的当天一致。
 - 曾发现并修复 `speech` 与 `days` 排序不一致的问题，并补回归测试。
-- 真实 `https://api.open-meteo.com` 请求在当时的执行环境超时；写这段时 Cloudflare 尚未部署。因此当时 W1 状态为 `implemented-unverified`。2026-10-06 已完成首次部署。安全补丁后的当前行为见 `docs/weather-worker-deployment.md`。真实 Worker URL 不写入本仓库。
-- Grok reviewer：修复后的 handler 契约无必须修正项，但因真实上游未验证，不能标记 `done`；W2 暂停。
+- 真实 `https://api.open-meteo.com` 请求在当时的执行环境超时；写这段时 Cloudflare 尚未部署。2026-10-06 已完成首次部署，之后又部署了坐标取整、错误兜底、GET-only、IP 限流和调用日志配置。真实 Worker URL 不写入本仓库。
+- Grok reviewer：早期 handler 契约审查无必须修正项；当前 Worker 的本地测试和线上示例请求已完成，荣耀手机端到端仍未验证。
 
 ### W2：Android 定位与单页天气展示
 
 - **结果**：时钟三行先显示；同一页面异步追加天气行；同时请求精确和大致定位权限；仅精确授权后使用 GPS；App 只调用 Worker URL；无天气时不遮挡时钟。
 - **明确不做**：不直连 Open-Meteo；不做手动城市；不做第二页面；不接 TTS 自动播放。
-- **验证**：JVM 契约/分类测试、debug 构建、Manifest 权限审计；Worker URL 未部署时只标记联网未验证，不称天气功能完成。
-- **未验证边界**：Android 真机定位、权限弹窗、页面布局、真实 Worker 访问。
+- **验证**：JVM 契约/分类测试、debug 构建、天气版 release 构建和 APK 审计；线上 Worker 已用示例 GET、POST 和非法参数验证；荣耀真机定位和页面表现仍未验证。
+- **未验证边界**：Android 真机定位、权限弹窗、页面布局、真实荣耀设备访问。
 - **停止条件**：缺少精确位置时不能伪造天气；天气失败不能遮挡时钟。
 
 ### W3：部署前 release 门禁
 
 - **结果**：release 构建必须注入已部署的 HTTPS Worker URL；没有 URL 时构建失败；签名、包名、权限和 URL 配置可审计。
 - **明确不做**：不自动部署、不提交密钥、不把 Worker URL 写死为未验证地址。
-- **验证**：空 URL 负向构建失败；HTTPS URL 正向配置构建成功；APK 权限和签名审计。
-- **未验证边界**：Cloudflare 真实部署和手机端到端请求需用户执行。
+- **验证**：空 URL 负向构建失败；HTTPS URL 正向配置构建成功；APK 权限、签名和 Worker 地址审计通过。
+- **未验证边界**：荣耀手机端到端天气请求、页面布局和真实用户可辨认性需现场验证。
 
 ### W4：中文 TTS（后续独立卡）
 
@@ -346,7 +347,8 @@ C1 和 C2 有主机命令证据；核心 APK 权限和组件审计通过；C3/C4
 
 **W3 当前证据**
 
-- 未设置 `WEATHER_WORKER_BASE_URL` 执行 `:app:assembleRelease`，任务在 `preReleaseBuild` 失败，退出码为 1，错误为“Release 构建必须设置 WEATHER_WORKER_BASE_URL 为已部署的 https Worker 地址”。
-- 该证据只证明空 URL 不会生成天气版 release；正向 HTTPS 构建、APK 审计和 Cloudflare 真实链路仍未验证。
- - Grok reviewer：负向门禁结论充分、无必须修正项；W3 状态为 `implemented-unverified`。debug/JVM 不受空 URL 门禁影响，但正向 HTTPS 构建和 APK 审计未完成。
- - 注意：当前门禁只检查 `https://` 前缀，不能证明地址已部署或属于本项目 Worker；正向构建只能使用用户部署后提供的最终 HTTPS Worker URL。
+- 未设置 `WEATHER_WORKER_BASE_URL` 执行 `:app:assembleRelease` 时，`preReleaseBuild` 按预期失败，阻止生成没有天气服务地址的 release。
+- 设置已部署的 HTTPS Worker 地址后，`:app:assembleRelease --offline` 成功；`aapt` 核对包名为 `com.anxinkan.app`、`minSdk` 为 31、`targetSdk` 为 36、唯一 launcher 为 `MainActivity`，并核对天气版包含网络和定位权限。
+- `apksigner verify --verbose --print-certs` 通过，APK 使用 v2 签名且不是 debuggable；APK 中包含构建时注入的 Worker 主机名，不包含密码或签名文件路径。
+- Worker 部署输出确认 `WEATHER_IP_LIMIT` 为 30 requests/60s；线上示例 GET 返回天气 JSON，POST 返回 405，非法 `days` 返回 400。
+- 荣耀真机安装、定位授权、天气显示和真实用户使用仍未验证。
